@@ -4,7 +4,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: '5.0'
-    IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '16.0'
 targets:
   ThanhThanNative:
     type: application
