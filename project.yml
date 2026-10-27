@@ -22,6 +22,8 @@ targets:
       - path: GameScreen.swift
       - path: GameWorld.swift
       - path: ThanhThanNativeApp.swift
+      - path: gem.png
+        buildPhase: resources
       - path: assassin_dier.glb
         buildPhase: resources
     dependencies:
@@ -32,9 +34,23 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
         TARGETED_DEVICE_FAMILY: '1,2'
         SUPPORTS_MACCATALYST: NO
         CODE_SIGN_STYLE: Automatic
+
+  ThanhThanNativeTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: '16.0'
+    sources:
+      - path: Tests
+    dependencies:
+      - target: ThanhThanNative
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 
 schemes:
   ThanhThanNative:
@@ -43,3 +59,6 @@ schemes:
         ThanhThanNative: all
     run:
       config: Debug
+    test:
+      targets:
+        - ThanhThanNativeTests
