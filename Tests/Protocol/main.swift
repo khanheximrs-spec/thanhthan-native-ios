@@ -15,7 +15,8 @@ do {
     check(c2[0] == 0xC2 && c2[1] == 0x01 && c2[2] == 0x1C, "Incorrect C2 length")
 
     var framer = MUWireFramer()
-    check(try framer.feed(Data([0xC1, 0x04])).isEmpty, "Partial header/frame must wait")
+    let partial = try framer.feed(Data([0xC1, 0x04]))
+    check(partial.isEmpty, "Partial header/frame must wait")
     let first = try framer.feed(Data([0xF4, 0x06]))
     check(first.count == 1 && first[0].type == .c1, "Fragmented C1 failed")
     check(first[0].body == Data([0xF4, 0x06]), "C1 body lost")
