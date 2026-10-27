@@ -1,0 +1,46 @@
+name: Build ThanhThan Native iOS Prototype
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate --spec project.yml
+      - name: Build app without signing
+        run: |
+          xcodebuild -project ThanhThanNative.xcodeproj \
+            -scheme ThanhThanNative \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          test -d build/Build/Products/Release-iphoneos/ThanhThanNative.app
+          cp -R build/Build/Products/Release-iphoneos/ThanhThanNative.app Payload/
+          zip -qry ThanhThanNative-DEMO-unsigned.ipa Payload
+          unzip -t ThanhThanNative-DEMO-unsigned.ipa
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThanhThanNative-DEMO-unsigned-IPA
+          path: ThanhThanNative-DEMO-unsigned.ipa
+          retention-days: 7
+          if-no-files-found: error
