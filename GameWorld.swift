@@ -117,7 +117,7 @@ final class GameWorld: NSObject, ObservableObject {
         sun.shadowColor = UIColor(white: 0, alpha: 0.28)
         let lightNode = SCNNode()
         lightNode.light = sun
-        lightNode.eulerAngles = SCNVector3(-.pi / 3, .pi / 4, 0)
+        lightNode.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 4, 0)
         scene.rootNode.addChildNode(lightNode)
 
         let spawns: [(Float, Float)] = [(-5,-4), (4,-6), (7,4), (-7,5),
