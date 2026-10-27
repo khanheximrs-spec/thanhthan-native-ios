@@ -11,7 +11,10 @@ targets:
     platform: iOS
     deploymentTarget: '15.0'
     sources:
-      - path: ThanhThanNative
+
+      - path: GameScreen.swift
+      - path: GameWorld.swift
+      - path: ThanhThanNativeApp.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.khanheximrs.thanhthannative
