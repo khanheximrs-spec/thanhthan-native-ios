@@ -1,0 +1,30 @@
+name: ThanhThanNative
+options:
+  minimumXcodeGenVersion: 2.35.0
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+targets:
+  ThanhThanNative:
+    type: application
+    platform: iOS
+    deploymentTarget: '15.0'
+    sources:
+      - path: ThanhThanNative
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.khanheximrs.thanhthannative
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        TARGETED_DEVICE_FAMILY: '1,2'
+        SUPPORTS_MACCATALYST: NO
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  ThanhThanNative:
+    build:
+      targets:
+        ThanhThanNative: all
+    run:
+      config: Debug
