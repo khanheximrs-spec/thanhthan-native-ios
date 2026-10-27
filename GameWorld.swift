@@ -1,3 +1,4 @@
+import GLTFSceneKit
 import Foundation
 import SceneKit
 import SwiftUI
@@ -5,6 +6,43 @@ import SwiftUI
 // OFFLINE prototype only. This is not the original PC game client.
 // All meshes in the level are procedural placeholders, not decoded MU BMD geometry.
 final class GameWorld: NSObject, ObservableObject {
+    
+private lazy var assassinTemplate: SCNNode? = {
+    guard let url = Bundle.main.url(
+        forResource: "assassin_dier",
+        withExtension: "glb"
+    ) else {
+        print("Missing assassin_dier.glb")
+        return nil
+    }
+
+    let source = GLTFSceneSource(url: url)
+
+    guard let imported = try? source.scene() else {
+        print("Cannot open assassin_dier.glb")
+        return nil
+    }
+
+    let root = imported.rootNode
+    let (low, high) = root.boundingBox
+
+    let width = high.x - low.x
+    let height = high.y - low.y
+    let depth = high.z - low.z
+    let extent = max(width, max(height, depth))
+
+    let scale: Float = extent > 0.0001 ? 2.3 / extent : 1
+
+    root.scale = SCNVector3(scale, scale, scale)
+    root.position = SCNVector3(
+        -(low.x + high.x) * scale / 2,
+        -low.y * scale,
+        -(low.z + high.z) * scale / 2
+    )
+
+    return root
+}()
+
     let scene = SCNScene()
     let camera = SCNNode()
     private let player = SCNNode()
@@ -156,6 +194,12 @@ final class GameWorld: NSObject, ObservableObject {
     }
 
     private func createEnemy(index: Int, x: Float, z: Float) {
+        if let model = assassinTemplate?.clone() {
+    node.addChildNode(model)
+} else {
+    // Giữ nguyên đoạn tạo capsule,
+    // sphere và sừng quái vật hiện tại ở đây.
+}
         let node = SCNNode()
         node.position = SCNVector3(x, 0, z)
         let shade = index.isMultiple(of: 2)
