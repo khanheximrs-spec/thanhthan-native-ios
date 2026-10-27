@@ -21,6 +21,7 @@ targets:
     sources:
       - path: GameScreen.swift
       - path: GameWorld.swift
+      - path: MUWireProtocol.swift
       - path: ThanhThanNativeApp.swift
       - path: assassin_dier.glb
         buildPhase: resources
