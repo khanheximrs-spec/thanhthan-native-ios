@@ -1,6 +1,10 @@
 name: ThanhThanNative
 options:
   minimumXcodeGenVersion: 2.35.0
+  packages:
+  GLTFSceneKit:
+    url: https://github.com/magicien/GLTFSceneKit
+    branch: master
 settings:
   base:
     SWIFT_VERSION: '5.0'
