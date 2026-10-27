@@ -1,10 +1,41 @@
 import Foundation
 import SceneKit
+import GLTFSceneKit
 import SwiftUI
 
 // OFFLINE prototype only. This is not the original PC game client.
 // All meshes in the level are procedural placeholders, not decoded MU BMD geometry.
 final class GameWorld: NSObject, ObservableObject {
+    // Converted MU monster asset. Kept separate from gameplay/network systems.
+    private lazy var assassinTemplate: SCNNode? = {
+        guard let url = Bundle.main.url(forResource: "assassin_dier", withExtension: "glb") else {
+            print("ThanhThan: assassin_dier.glb missing from app resources")
+            return nil
+        }
+        do {
+            let importedScene = try GLTFSceneSource(url: url).scene()
+            let root = importedScene.rootNode
+            let (minCorner, maxCorner) = root.boundingBox
+            let dx = maxCorner.x - minCorner.x
+            let dy = maxCorner.y - minCorner.y
+            let dz = maxCorner.z - minCorner.z
+            let longestSide = max(dx, max(dy, dz))
+            if longestSide.isFinite && longestSide > 0.001 {
+                let factor: Float = min(2.2 / longestSide, 100.0)
+                root.scale = SCNVector3(factor, factor, factor)
+                root.position = SCNVector3(
+                    -(minCorner.x + maxCorner.x) * factor * 0.5,
+                    -minCorner.y * factor,
+                    -(minCorner.z + maxCorner.z) * factor * 0.5
+                )
+            }
+            return root
+        } catch {
+            print("ThanhThan: failed to load GLB: \(error)")
+            return nil
+        }
+    }()
+
     let scene = SCNScene()
     let camera = SCNNode()
     private let player = SCNNode()
@@ -158,17 +189,20 @@ final class GameWorld: NSObject, ObservableObject {
     private func createEnemy(index: Int, x: Float, z: Float) {
         let node = SCNNode()
         node.position = SCNVector3(x, 0, z)
-        let shade = index.isMultiple(of: 2)
-            ? UIColor(red: 0.62, green: 0.19, blue: 0.20, alpha: 1)
-            : UIColor(red: 0.49, green: 0.27, blue: 0.64, alpha: 1)
-        addShape(SCNCapsule(capRadius: 0.51, height: 1.5),
-                 color: shade, at: SCNVector3(0, 0.91, 0), to: node)
-        addShape(SCNSphere(radius: 0.41), color: shade,
-                 at: SCNVector3(0, 1.78, 0), to: node)
-        for xOffset: Float in [-0.25, 0.25] {
-            addShape(SCConeCompat(height: 0.42), color: .lightGray,
-                     at: SCNVector3(xOffset, 2.13, 0), to: node)
+
+        if let monster = assassinTemplate?.clone() {
+            node.addChildNode(monster)
+        } else {
+            // Visible placeholder only when the real converted asset cannot load.
+            let shade = index.isMultiple(of: 2)
+                ? UIColor(red: 0.62, green: 0.19, blue: 0.20, alpha: 1)
+                : UIColor(red: 0.49, green: 0.27, blue: 0.64, alpha: 1)
+            addShape(SCNCapsule(capRadius: 0.51, height: 1.5),
+                     color: shade, at: SCNVector3(0, 0.91, 0), to: node)
+            addShape(SCNSphere(radius: 0.41), color: shade,
+                     at: SCNVector3(0, 1.78, 0), to: node)
         }
+
         scene.rootNode.addChildNode(node)
         enemies.append(Enemy(node: node, home: SCNVector3(x, 0, z), health: 65 + index * 5))
     }

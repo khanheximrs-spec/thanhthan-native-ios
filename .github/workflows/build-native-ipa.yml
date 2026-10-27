@@ -1,4 +1,4 @@
-name: Build ThanhThan Native iOS Prototype
+name: Build ThanhThan iOS with real MU monster asset
 
 on:
   push:
@@ -9,9 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  source-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source and real GLB asset
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          data = Path("assassin_dier.glb").read_bytes()
+          assert len(data) > 1000000, "Game model unexpectedly small"
+          assert data[:4] == b"glTF", "Invalid GLB signature"
+          assert struct.unpack_from("<I", data, 4)[0] == 2, "Expected GLB version 2"
+          assert struct.unpack_from("<I", data, 8)[0] == len(data), "Invalid GLB byte count"
+          s = Path("GameWorld.swift").read_text()
+          assert "GLTFSceneSource" in s and "assassinTemplate" in s, "GLB loader not integrated"
+          assert "func tick(" in s, "Gameplay logic unexpectedly missing"
+          print("Source validation passed: GLB v2 and gameplay logic present")
+          PY
+
   build:
-    runs-on: macos-15
-    timeout-minutes: 30
+    needs: source-check
+    runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -35,12 +57,12 @@ jobs:
           mkdir -p Payload
           test -d build/Build/Products/Release-iphoneos/ThanhThanNative.app
           cp -R build/Build/Products/Release-iphoneos/ThanhThanNative.app Payload/
-          zip -qry ThanhThanNative-DEMO-unsigned.ipa Payload
-          unzip -t ThanhThanNative-DEMO-unsigned.ipa
+          zip -qry ThanhThanNative-MUAsset-unsigned.ipa Payload
+          unzip -t ThanhThanNative-MUAsset-unsigned.ipa
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ThanhThanNative-DEMO-unsigned-IPA
-          path: ThanhThanNative-DEMO-unsigned.ipa
+          name: ThanhThanNative-MUAsset-unsigned-IPA
+          path: ThanhThanNative-MUAsset-unsigned.ipa
           retention-days: 7
           if-no-files-found: error
