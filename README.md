@@ -1,3 +1,36 @@
+# Native combat UI update
+
+Bản sửa này chạy SwiftUI + SceneKit trực tiếp; không có WKWebView.
+
+- Màn hình ngang, HUD HP/MP/EXP gọn, khung màu đồng tối.
+- Chạm quái hoặc nút MỤC TIÊU để chọn; vòng đánh dấu và HP mục tiêu lấy từ GameWorld.
+- Radar lấy vị trí nhân vật và quái còn sống, không phải ảnh bản đồ giả.
+- Hiển thị hồi chiêu kỹ năng, khóa nút khi thiếu MP; số sát thương nổi trong scene.
+- Túi đồ dạng lưới hiển thị bình máu thật; texture mẫu PC ghi rõ là mẫu, không phải vật phẩm đã sở hữu.
+- Tạm dừng khi mở túi đồ/hướng dẫn hoặc ứng dụng chuyển nền; reset joystick để tránh tự chạy.
+- Hồi sinh đưa quái về điểm xuất hiện, xóa input và lựa chọn cũ.
+- Sửa đóng gói gem.png và thêm XCTest kiểm tra chọn mục tiêu, ngoài tầm, hồi chiêu, bình máu, trạng thái dừng.
+
+## Phạm vi và kiểm chứng
+
+Chưa thể xác nhận giống nguyên bản ThanhThan: trang play.thanhthan.info chặn phiên khảo sát. Đây là bố cục native tạm triển khai, không phải kết quả khảo sát gameplay gốc.
+Mô hình quái assassin_dier.glb đã có sẵn từ bản trước; nhân vật và địa hình vẫn dựng mẫu. Chưa có mạng, tài khoản, bản đồ PC đầy đủ hay bộ trang bị/animation nhân vật.
+Danh sách BMD/OZJ được cung cấp xác nhận có tài nguyên Player, nhưng danh sách tên file không thay thế mesh/rig/texture đã chuyển đổi và kiểm tra.
+
+Build và XCTest được chạy qua pull request trên macOS. Chỉ coi IPA là bản thử nghiệm sau khi CI thành công; vẫn cần kiểm tra cảm ứng và bố cục trên iPhone thật.
+
+## Checklist kiểm tra trên iPhone
+
+1. Xoay ngang hai chiều: HUD và nút không bị tai thỏ che, scene phủ nền.
+2. Kéo joystick rồi mở túi đồ: quái ngừng đánh; đóng lại nhân vật không tự chạy.
+3. Chạm quái, tiến vào tầm, đánh: vòng chọn và HP mục tiêu phản hồi đúng.
+4. Dùng kỹ năng: mất 22 MP, đếm ngược 1,8 giây; chạm liên tục không dùng thêm MP.
+5. AUTO bật/tắt; mục tiêu ngoài tầm không nhận sát thương.
+6. Ra nền/quay lại: không mất máu trong lúc ứng dụng bị tạm dừng.
+7. Hết HP rồi hồi sinh: nhân vật sống lại, quái về điểm xuất hiện.
+
+---
+
 # ThanhThan Native iOS – Prototype 0.1
 
 **Ứng dụng iOS native SwiftUI + SceneKit, không mở website.**
@@ -37,7 +70,7 @@
 6. Giải nén ZIP lấy `ThanhThanNative-DEMO-unsigned.ipa`.
 7. Ký IPA và cài lên iPhone bằng công cụ sideload phù hợp với tài khoản Apple. Không đổi đuôi ZIP thành IPA.
 
-Nếu workflow lỗi, mở job `build`, sao chép log bước lỗi để sửa. **Dự án được kiểm tra cú pháp bằng Swift compiler trên Linux nhưng CHƯA được xác nhận biên dịch thành công bằng Xcode trên macOS.**
+Nếu workflow lỗi, mở job `build`, sao chép log bước lỗi để sửa. **Xem kết quả workflow hiện tại để xác nhận build; không suy ra build thành công từ việc kiểm tra source.**
 
 ### Mở bằng Xcode (Mac)
 

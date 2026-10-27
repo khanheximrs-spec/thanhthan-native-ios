@@ -4,7 +4,7 @@ import GLTFSceneKit
 import SwiftUI
 
 // OFFLINE prototype only. This is not the original PC game client.
-// All meshes in the level are procedural placeholders, not decoded MU BMD geometry.
+// Player and terrain are placeholders; enemies use the converted PC GLB when available.
 final class GameWorld: NSObject, ObservableObject {
     // Converted MU monster asset. Kept separate from gameplay/network systems.
     private lazy var assassinTemplate: SCNNode? = {
@@ -48,6 +48,14 @@ final class GameWorld: NSObject, ObservableObject {
     private var nextNormalStrike: TimeInterval = 0
     private var nextSkillStrike: TimeInterval = 0
     private var nextManaRegen: TimeInterval = 0
+    private var nextHUDUpdate: TimeInterval = 0
+    private var selectedEnemy: Enemy?
+    @Published private(set) var isRunning = false
+    @Published private(set) var skillRemaining: Double = 0
+    @Published private(set) var targetHP = 0
+    @Published private(set) var targetMaxHP = 1
+    @Published private(set) var targetIndex = 0
+    @Published private(set) var radarPoints: [RadarPoint] = []
 
     @Published private(set) var hp = 100
     @Published private(set) var mp = 100
@@ -157,6 +165,7 @@ final class GameWorld: NSObject, ObservableObject {
             createEnemy(index: index, x: coord.0, z: coord.1)
         }
         countNearby()
+        updateHUD()
     }
 
     private func createPlayer() {
@@ -213,6 +222,7 @@ final class GameWorld: NSObject, ObservableObject {
 
     func start() {
         guard timer == nil else { return }
+        isRunning = true
         lastTick = Date()
         let newTimer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             self?.tick()
@@ -224,6 +234,7 @@ final class GameWorld: NSObject, ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        isRunning = false
         lastTick = nil
         input = .zero
     }
@@ -242,8 +253,12 @@ final class GameWorld: NSObject, ObservableObject {
         let now = Date()
         let dt = min(max(now.timeIntervalSince(lastTick ?? now), 0), 0.06)
         lastTick = now
-        clock += dt
         guard hp > 0 else { return }
+        clock += dt
+        if clock >= nextHUDUpdate {
+            nextHUDUpdate = clock + 0.1
+            updateHUD()
+        }
 
         var direction = input
         let magnitude = sqrt(direction.x * direction.x + direction.y * direction.y)
@@ -288,6 +303,7 @@ final class GameWorld: NSObject, ObservableObject {
                 if hp == 0 {
                     notice = "Nhân vật gục ngã. Nhấn Hồi sinh."
                     autoCombat = false
+                    input = .zero
                 }
             }
         }
@@ -307,8 +323,8 @@ final class GameWorld: NSObject, ObservableObject {
         if count != nearbyEnemies { nearbyEnemies = count }
     }
 
-    func normalAttack() { strike(skill: false, silent: false) }
-    func castSkill() { strike(skill: true, silent: false) }
+    func normalAttack() { strike(skill: false, silent: false); updateHUD() }
+    func castSkill() { strike(skill: true, silent: false); updateHUD() }
 
     private func strike(skill: Bool, silent: Bool) {
         guard hp > 0 else { return }
@@ -319,12 +335,24 @@ final class GameWorld: NSObject, ObservableObject {
             guard clock >= nextNormalStrike else { return }
         }
         let maxRange: Float = skill ? 4.4 : 2.7
-        let targets = enemies
+        var targets = enemies
             .filter { $0.alive && distance(player.position, $0.node.position) <= maxRange }
             .sorted { distance(player.position, $0.node.position) < distance(player.position, $1.node.position) }
+        if !skill, let selected = selectedEnemy, selected.alive {
+            guard targets.contains(where: { $0 === selected }) else {
+                if !silent { notice = "Mục tiêu ngoài tầm đánh" }
+                return
+            }
+            targets = [selected]
+        }
         guard !targets.isEmpty else {
             if !silent { notice = "Tiến lại gần quái để tấn công" }
             return
+        }
+        if let first = targets.first {
+            selectedEnemy = first
+            player.eulerAngles.y = atan2(first.node.position.x - player.position.x,
+                                          first.node.position.z - player.position.z)
         }
         if skill {
             mp -= 22
@@ -338,7 +366,9 @@ final class GameWorld: NSObject, ObservableObject {
         }
         let hits = skill ? Array(targets.prefix(4)) : Array(targets.prefix(1))
         for mob in hits {
-            mob.health -= skill ? 43 + level * 3 : 26 + level * 2
+            let damage = skill ? 43 + level * 3 : 26 + level * 2
+            mob.health -= damage
+            showDamage(damage, at: mob.node.position)
             mob.node.runAction(.sequence([.scale(to: 1.16, duration: 0.09), .scale(to: 1, duration: 0.14)]))
             if mob.health <= 0 {
                 mob.alive = false
@@ -357,6 +387,68 @@ final class GameWorld: NSObject, ObservableObject {
                     notice = "+24 EXP · +\(10 + level * 3) vàng"
                 }
             }
+        }
+    }
+
+    private func showDamage(_ damage: Int, at position: SCNVector3) {
+        let text = SCNText(string: "−\(damage)", extrusionDepth: 0)
+        text.font = UIFont.boldSystemFont(ofSize: 1)
+        text.firstMaterial?.diffuse.contents = UIColor.yellow
+        text.firstMaterial?.lightingModel = .constant
+        let node = SCNNode(geometry: text)
+        node.scale = SCNVector3(0.6, 0.6, 0.6)
+        node.position = SCNVector3(position.x, position.y + 2.5, position.z)
+        node.constraints = [SCNBillboardConstraint()]
+        scene.rootNode.addChildNode(node)
+        node.runAction(.sequence([.group([.moveBy(x: 0, y: 1.2, z: 0, duration: 0.7),
+                                         .fadeOut(duration: 0.7)]), .removeFromParentNode()]))
+    }
+
+    @discardableResult
+    func selectEnemy(node: SCNNode) -> Bool {
+        guard isRunning, hp > 0 else { return false }
+        var ancestor: SCNNode? = node
+        while let current = ancestor {
+            if let enemy = enemies.first(where: { $0.alive && $0.node === current }) {
+                selectedEnemy = enemy
+                updateHUD()
+                return true
+            }
+            ancestor = current.parent
+        }
+        return false
+    }
+
+    func cycleTarget() {
+        let alive = enemies.filter { $0.alive }
+        guard !alive.isEmpty else { selectedEnemy = nil; updateHUD(); return }
+        if let current = selectedEnemy, let index = alive.firstIndex(where: { $0 === current }) {
+            selectedEnemy = alive[(index + 1) % alive.count]
+        } else {
+            selectedEnemy = alive.min { distance(player.position, $0.node.position) < distance(player.position, $1.node.position) }
+        }
+        updateHUD()
+    }
+
+    private func updateHUD() {
+        skillRemaining = max(0, nextSkillStrike - clock)
+        if selectedEnemy?.alive == false { selectedEnemy = nil }
+        targetHP = max(0, selectedEnemy?.health ?? 0)
+        targetMaxHP = selectedEnemy?.maxHealth ?? 1
+        targetIndex = enemies.firstIndex(where: { $0 === selectedEnemy }) ?? 0
+        radarPoints = [RadarPoint(x: player.position.x, z: player.position.z, isPlayer: true)] +
+            enemies.filter { $0.alive }.map { RadarPoint(x: $0.node.position.x, z: $0.node.position.z, isPlayer: false) }
+        for enemy in enemies {
+            if enemy.node.childNode(withName: "selection-ring", recursively: false) == nil {
+                let ring = SCNTorus(ringRadius: 0.8, pipeRadius: 0.04)
+                ring.firstMaterial?.diffuse.contents = UIColor.yellow
+                ring.firstMaterial?.lightingModel = .constant
+                let marker = SCNNode(geometry: ring)
+                marker.name = "selection-ring"
+                marker.position.y = 0.08
+                enemy.node.addChildNode(marker)
+            }
+            enemy.node.childNode(withName: "selection-ring", recursively: false)?.isHidden = enemy !== selectedEnemy
         }
     }
 
@@ -384,6 +476,7 @@ final class GameWorld: NSObject, ObservableObject {
     }
 
     func toggleAuto() {
+        guard hp > 0 else { return }
         autoCombat.toggle()
         notice = autoCombat ? "Tự đánh: BẬT" : "Tự đánh: TẮT"
     }
@@ -392,7 +485,15 @@ final class GameWorld: NSObject, ObservableObject {
         guard hp == 0 else { return }
         hp = maxHP
         mp = maxMP
+        input = .zero
+        selectedEnemy = nil
+        autoCombat = false
+        for enemy in enemies {
+            enemy.node.position = enemy.home
+            enemy.attackAfter = 2.4
+        }
         player.position = SCNVector3(0, 0, 0)
+        updateHUD()
         notice = "Hồi sinh tại quảng trường"
     }
 }
@@ -412,4 +513,10 @@ private final class Enemy {
         self.health = health
         self.maxHealth = health
     }
+}
+
+struct RadarPoint {
+    let x: Float
+    let z: Float
+    let isPlayer: Bool
 }
