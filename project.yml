@@ -22,6 +22,7 @@ targets:
       - path: GameScreen.swift
       - path: GameWorld.swift
       - path: MUWireProtocol.swift
+      - path: MUTransport.swift
       - path: ThanhThanNativeApp.swift
       - path: gem.png
         buildPhase: resources
