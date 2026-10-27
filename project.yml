@@ -1,24 +1,31 @@
+
 name: ThanhThanNative
 options:
   minimumXcodeGenVersion: 2.35.0
-  packages:
+
+packages:
   GLTFSceneKit:
     url: https://github.com/magicien/GLTFSceneKit
     branch: master
+
 settings:
   base:
     SWIFT_VERSION: '5.0'
     IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+
 targets:
   ThanhThanNative:
     type: application
     platform: iOS
     deploymentTarget: '16.0'
     sources:
-
       - path: GameScreen.swift
       - path: GameWorld.swift
       - path: ThanhThanNativeApp.swift
+      - path: assassin_dier.glb
+        buildPhase: resources
+    dependencies:
+      - package: GLTFSceneKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.khanheximrs.thanhthannative
@@ -28,6 +35,7 @@ targets:
         TARGETED_DEVICE_FAMILY: '1,2'
         SUPPORTS_MACCATALYST: NO
         CODE_SIGN_STYLE: Automatic
+
 schemes:
   ThanhThanNative:
     build:
