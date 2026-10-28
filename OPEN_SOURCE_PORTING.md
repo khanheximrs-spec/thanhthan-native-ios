@@ -30,3 +30,8 @@ Goal: a standalone iPhone client that can log in with the **existing ThanhThan P
 5. Sign and test the IPA on an actual iPhone before declaring completion.
 
 **Never replace or modify the existing account database.** A different server or locally simulated character cannot satisfy the user's goal.
+
+## Offline ConnectServer negotiation (synthetic fixtures only)
+- `MUConnectServerFlow.swift` models the documented server-list negotiation as a strict state machine; it generates C1 F4 06 list and C1 F4 03 server-selection envelopes only when the expected preceding response has been received.
+- Server selection is constrained to IDs returned by the server list. It preserves the game server address but NEVER connects to it or sends a password.
+- This is the OpenMU protocol *candidate*, not evidence of actual ThanhThan handshake compatibility. It is not wired into the gameplay scene.

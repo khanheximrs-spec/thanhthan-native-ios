@@ -24,6 +24,7 @@ targets:
       - path: MUWireProtocol.swift
       - path: MUTransport.swift
       - path: MUServerPackets.swift
+      - path: MUConnectServerFlow.swift
       - path: ThanhThanNativeApp.swift
       - path: gem.png
         buildPhase: resources

@@ -106,7 +106,36 @@ do {
     check(MUServerPacketDecoder.decode(unknown) == .notRecognized,
           "Unknown packet must not be guessed")
 
-    print("MU Wire Protocol: framing + 9 documented server message checks passed.")
+
+    var session = MUConnectServerFlow()
+    session.beginSession()
+    check(session.phase == .waitingForHello, "Negotiation must wait for hello")
+    check(session.requestServer(1) == nil, "Cannot select server before server list")
+    let askList = session.receive(.event(.connectHello))
+    check(askList == Data([0xC1, 0x04, 0xF4, 0x06]),
+          "Connect server list request bytes mismatch")
+    check(session.phase == .waitingForServerList, "Server list negotiation phase incorrect")
+    check(session.receive(.event(.serverList(expectedServers))) == nil,
+          "Server list should not auto-select a server")
+    check(session.phase == .serversAvailable(expectedServers),
+          "Server list must be retained")
+    check(session.requestServer(3) == nil, "Unknown server ID must be rejected")
+    check(session.requestServer(2) == Data([0xC1, 0x06, 0xF4, 0x03, 0x02, 0x00]),
+          "Server selection request bytes mismatch")
+    check(session.phase == .waitingForServerAddress(2),
+          "Server address negotiation phase incorrect")
+    check(session.receive(.event(.serverAddress(host: "127.0.0.1", port: 55901))) == nil,
+          "Server handoff must not initiate a hidden connection")
+    check(session.phase == .serverAddressResolved(host: "127.0.0.1", port: 55901),
+          "Game server address was not retained")
+    session.reset()
+    check(session.phase == .idle, "Reset must clear session")
+    session.beginSession()
+    check(session.receive(.malformedKnownPacket) == nil &&
+          session.phase == .protocolError,
+          "Malformed server reply should abort negotiation")
+
+    print("MU Wire Protocol: framing, server messages and connect-server flow passed.")
 } catch {
     fatalError("MU Wire Protocol check failed: \(error)")
 }
