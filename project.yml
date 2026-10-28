@@ -26,6 +26,7 @@ targets:
       - path: MUServerPackets.swift
       - path: MUCharacterList.swift
       - path: MUGameSession.swift
+      - path: MUGameServerObserver.swift
       - path: MUConnectServerFlow.swift
       - path: MUConnectServerClient.swift
       - path: ThanhThanNativeApp.swift

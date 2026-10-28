@@ -50,3 +50,10 @@ Goal: a standalone iPhone client that can log in with the **existing ThanhThan P
 - `MUGameSession.swift` implements an independently testable server-hello → login-reply → character-list progression against **synthetic** MU Season 6 packets.
 - It sends a documented F3/00 character-list request **only when the server confirms successful login**. It does not generate or send account credentials, negotiate ciphers or connect to the ThanhThan game server.
 - Unknown encrypted responses and unknown character-list variants must remain unsupported until verified with an authorized server.
+
+
+## Read-only game-server handshake observer
+
+- `MUGameServerObserver.swift` now connects `MUTransport` to the deterministic `MUGameSessionFlow` to observe a server hello over native TCP.
+- This is a deliberately read-only component: no login packet, password, character selection, or gameplay action is sent. No hardcoded endpoint. It does not establish ThanhThan compatibility.
+- Next major dependency is an authorized, version-specific login/cipher implementation and real server validation.
