@@ -27,6 +27,7 @@ final class MUTransport {
     // These properties are only accessed on networkQueue.
     private var connection: NWConnection?
     private var framer = MUWireFramer()
+    private var sessionID: UInt64 = 0
 
     init(onStatus: @escaping StatusHandler, onPacket: @escaping PacketHandler) {
         self.onStatus = onStatus
@@ -49,11 +50,12 @@ final class MUTransport {
                 using: .tcp
             )
             connection = client
+            let currentSession = sessionID
             framer.reset()
             notifyStatus(.connecting)
 
             client.stateUpdateHandler = { [weak self, weak client] state in
-                guard let self, let client, self.connection === client else { return }
+                guard let self, let client, self.connection === client, self.sessionID == currentSession else { return }
                 switch state {
                 case .ready:
                     self.notifyStatus(.connected)
@@ -80,8 +82,11 @@ final class MUTransport {
                 notifyStatus(.failed("Not connected"))
                 return
             }
-            connection.send(content: encodedPacket, completion: .contentProcessed { [weak self] error in
-                if let error { self?.notifyStatus(.failed(error.localizedDescription)) }
+            let currentSession = sessionID
+            connection.send(content: encodedPacket, completion: .contentProcessed { [weak self, weak connection] error in
+                guard let self, let connection, self.connection === connection,
+                      self.sessionID == currentSession else { return }
+                if let error { self.notifyStatus(.failed(error.localizedDescription)) }
             })
         }
     }
@@ -128,6 +133,7 @@ final class MUTransport {
     }
 
     private func cancelCurrentConnection() {
+        sessionID &+= 1
         let old = connection
         connection = nil
         old?.stateUpdateHandler = nil
