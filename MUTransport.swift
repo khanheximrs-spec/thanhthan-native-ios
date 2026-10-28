@@ -27,6 +27,9 @@ final class MUTransport {
     // These properties are only accessed on networkQueue.
     private var connection: NWConnection?
     private var framer = MUWireFramer()
+    // The network queue owns sessionID writes. The lock also lets queued
+    // main-thread callbacks verify that their session is still active.
+    private let sessionIDLock = NSLock()
     private var sessionID: UInt64 = 0
 
     init(onStatus: @escaping StatusHandler, onPacket: @escaping PacketHandler) {
@@ -61,11 +64,11 @@ final class MUTransport {
                     self.notifyStatus(.connected)
                     self.receiveNext(from: client)
                 case .failed(let error):
+                    self.cancelCurrentConnection()
                     self.notifyStatus(.failed(error.localizedDescription))
-                    self.cancelCurrentConnection()
                 case .cancelled:
-                    self.notifyStatus(.disconnected)
                     self.cancelCurrentConnection()
+                    self.notifyStatus(.disconnected)
                 default:
                     break
                 }
@@ -105,20 +108,22 @@ final class MUTransport {
                 do {
                     let frames = try self.framer.feed(data)
                     for packet in frames {
-                        DispatchQueue.main.async { [onPacket = self.onPacket] in
+                        let generation = self.sessionID
+                        DispatchQueue.main.async { [weak self, onPacket = self.onPacket] in
+                            guard self?.isCurrentSession(generation) == true else { return }
                             onPacket(packet)
                         }
                     }
                 } catch {
-                    self.notifyStatus(.failed("Malformed MU envelope: \(error)"))
                     self.cancelCurrentConnection()
+                    self.notifyStatus(.failed("Malformed MU envelope: \(error)"))
                     return
                 }
             }
 
             if let error {
-                self.notifyStatus(.failed(error.localizedDescription))
                 self.cancelCurrentConnection()
+                self.notifyStatus(.failed(error.localizedDescription))
             } else if isComplete {
                 self.cancelCurrentConnection()
                 self.notifyStatus(.disconnected)
@@ -129,11 +134,23 @@ final class MUTransport {
     }
 
     private func notifyStatus(_ status: ConnectionStatus) {
-        DispatchQueue.main.async { [onStatus] in onStatus(status) }
+        let generation = sessionID
+        DispatchQueue.main.async { [weak self, onStatus] in
+            guard self?.isCurrentSession(generation) == true else { return }
+            onStatus(status)
+        }
+    }
+
+    private func isCurrentSession(_ generation: UInt64) -> Bool {
+        sessionIDLock.lock()
+        defer { sessionIDLock.unlock() }
+        return sessionID == generation
     }
 
     private func cancelCurrentConnection() {
+        sessionIDLock.lock()
         sessionID &+= 1
+        sessionIDLock.unlock()
         let old = connection
         connection = nil
         old?.stateUpdateHandler = nil

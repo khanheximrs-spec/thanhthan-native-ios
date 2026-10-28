@@ -57,3 +57,10 @@ Goal: a standalone iPhone client that can log in with the **existing ThanhThan P
 - `MUGameServerObserver.swift` now connects `MUTransport` to the deterministic `MUGameSessionFlow` to observe a server hello over native TCP.
 - This is a deliberately read-only component: no login packet, password, character selection, or gameplay action is sent. No hardcoded endpoint. It does not establish ThanhThan compatibility.
 - Next major dependency is an authorized, version-specific login/cipher implementation and real server validation.
+
+
+## TCP callback lifecycle hardening (28 Oct 2026)
+
+- Queued main-thread transport status/packet callbacks are tagged with the active connection generation. Disconnecting or replacing a TCP session invalidates callbacks from the prior session before they can alter the current UI/session state.
+- Terminal receive, framing, and NWConnection failures now invalidate the connection *before* publishing the error/disconnect state, so legitimate terminal statuses remain deliverable while stale events are dropped.
+- This is a client lifecycle fix; it does **not** add ThanhThan authentication, decryption, live game traffic, or a verified server endpoint.
