@@ -28,6 +28,33 @@ do {
     check(packets[0].type == .c2, "C2 lost")
     check(packets[1].type == .c3 && packets[1].body.count == 2, "C3 framing failed")
     check(packets[2].type == .c1, "Trailing C1 lost")
+    
+    // Stress coalesced TCP reads: short packets must retain their ordering
+    // without repeatedly shifting the entire buffer. The last C2 header
+    // intentionally arrives across separate reads.
+    var batchFramer = MUWireFramer()
+    var batch = Data()
+    for _ in 0..<4096 { batch.append(c1) }
+    batch.append(Data([0xC2, 0x00]))
+    let batchPackets = try batchFramer.feed(batch)
+    check(batchPackets.count == 4096, "Coalesced frame batch lost packets")
+    check(batchPackets.allSatisfy({ $0.data == c1 }), "Coalesced packet bytes changed")
+    check(batchFramer.bufferedByteCount == 2, "Partial C2 header was not retained")
+    let tail = try batchFramer.feed(Data([0x04, 0xF4]))
+    check(tail.count == 1 && tail[0].data == Data([0xC2, 0x00, 0x04, 0xF4]),
+          "Fragmented trailing C2 frame was not recovered")
+    check(batchFramer.bufferedByteCount == 0, "Batch buffer was not drained")
+    
+    // The buffer limit applies even when no complete packet can be decoded.
+    var bounded = MUWireFramer(maximumBufferedBytes: 8)
+    _ = try bounded.feed(Data([0xC2, 0x00, 0x08, 0xF4, 0x06, 0x00, 0x01]))
+    do {
+        _ = try bounded.feed(Data([0x00, 0x01]))
+        fatalError("Oversized buffered TCP input was accepted")
+    } catch MUWireError.bufferOverflow {
+        // Expected: never grow beyond the configured bound.
+    }
+
 
     var invalid = MUWireFramer()
     do {
