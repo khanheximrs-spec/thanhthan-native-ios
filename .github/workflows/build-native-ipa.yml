@@ -45,7 +45,7 @@ jobs:
           xcodegen generate --spec project.yml
       - name: Verify MU packet framing
         run: |
-          swiftc MUWireProtocol.swift MUServerPackets.swift MUConnectServerFlow.swift MUCharacterList.swift Tests/Protocol/main.swift -o /tmp/thanhthan-mu-wire-test
+          swiftc MUWireProtocol.swift MUServerPackets.swift MUConnectServerFlow.swift MUCharacterList.swift MUGameSession.swift Tests/Protocol/main.swift -o /tmp/thanhthan-mu-wire-test
           /tmp/thanhthan-mu-wire-test
       - name: Build app without signing
         run: |

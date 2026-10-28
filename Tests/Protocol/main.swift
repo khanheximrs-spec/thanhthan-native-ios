@@ -184,7 +184,54 @@ do {
         type: .c3, data: Data([0xC3, 0x04, 0xF3, 0x00])
     )) == .encryptedPayload, "Never inspect encrypted character data")
 
-    print("MU Wire Protocol: framing, server flow and character list fixtures passed.")
+
+    // Game server progression: hello -> explicit login request -> server
+    // confirmation -> character list -> real-account snapshot format.
+    // All packets in these tests are local, synthetic examples.
+    var game = MUGameSessionFlow(language: 0)
+    game.beginSession()
+    check(game.phase == .waitingForGameHello, "Game session did not start")
+    check(!game.markLoginRequestSubmitted(), "Login must wait for server hello")
+    check(game.receive(entered) == nil, "Hello must not auto-send credentials")
+    check(game.phase == .loginReady(
+        playerID: 66, version: Data("1.00A".utf8)
+    ), "Game-server hello state lost")
+    check(game.markLoginRequestSubmitted(), "Expected explicit login transition")
+    check(!game.markLoginRequestSubmitted(), "Duplicate login request was accepted")
+    check(game.receive(login) == MUGameSessionCommands.requestCharacterList(language: 0),
+          "Login success must trigger documented character-list request")
+    check(game.phase == .waitingForCharacterList, "Game session skipped list phase")
+    check(game.receive(MUWirePacket(type: .c1, data: Data(standardFrame))) == nil,
+          "Character-list response must not trigger another request")
+    if case .charactersAvailable(let snapshot) = game.phase {
+        check(snapshot.characters.count == 1, "Game session lost character count")
+        check(snapshot.characters[0].name == "TestKnight", "Game session lost character")
+        check(snapshot.characters[0].level == 298, "Game session lost character level")
+    } else { fatalError("Game session did not receive characters") }
+
+    var rejected = MUGameSessionFlow()
+    rejected.beginSession()
+    _ = rejected.receive(entered)
+    check(rejected.markLoginRequestSubmitted(), "Rejected login fixture not initialized")
+    check(rejected.receive(MUWirePacket(
+        type: .c1, data: Data([0xC1, 0x05, 0xF1, 0x01, 0x00])
+    )) == nil && rejected.phase == .loginRejected(code: 0),
+          "Wrong-password result cannot be treated as successful")
+    check(rejected.receive(MUWirePacket(
+        type: .c1, data: Data(standardFrame)
+    )) == nil, "Character list must not be accepted after rejected login")
+
+    var encryptedGame = MUGameSessionFlow()
+    encryptedGame.beginSession()
+    _ = encryptedGame.receive(entered)
+    _ = encryptedGame.markLoginRequestSubmitted()
+    check(encryptedGame.receive(cipher) == nil &&
+          encryptedGame.phase == .encryptionUnsupported,
+          "Encrypted login response must not be misread as plaintext")
+    encryptedGame.reset()
+    check(encryptedGame.phase == .idle, "Game session reset failed")
+
+    print("MU protocol: framing, ConnectServer, character list and game-session tests passed.")
 } catch {
     fatalError("MU Wire Protocol check failed: \(error)")
 }

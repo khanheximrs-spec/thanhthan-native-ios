@@ -43,3 +43,10 @@ Goal: a standalone iPhone client that can log in with the **existing ThanhThan P
 - The decoder retains equipment/appearance bytes verbatim rather than guessing class, model or equipment IDs.
 - Only synthetic, local tests are used; this does **not** read anyone's ThanhThan characters.
 - The actual game-server login, cipher negotiation, request sequencing, and server-variant compatibility are still missing.
+
+
+## Game-server session progression
+
+- `MUGameSession.swift` implements an independently testable server-hello → login-reply → character-list progression against **synthetic** MU Season 6 packets.
+- It sends a documented F3/00 character-list request **only when the server confirms successful login**. It does not generate or send account credentials, negotiate ciphers or connect to the ThanhThan game server.
+- Unknown encrypted responses and unknown character-list variants must remain unsupported until verified with an authorized server.
