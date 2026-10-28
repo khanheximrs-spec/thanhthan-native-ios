@@ -24,6 +24,7 @@ targets:
       - path: MUWireProtocol.swift
       - path: MUTransport.swift
       - path: MUServerPackets.swift
+      - path: MUCharacterList.swift
       - path: MUConnectServerFlow.swift
       - path: MUConnectServerClient.swift
       - path: ThanhThanNativeApp.swift

@@ -135,7 +135,56 @@ do {
           session.phase == .protocolError,
           "Malformed server reply should abort negotiation")
 
-    print("MU Wire Protocol: framing, server messages and connect-server flow passed.")
+
+    // Synthetic Season 6 F3/00 character records, no personal account data.
+    var standard = [UInt8](repeating: 0, count: 34)
+    standard[0] = 2                           // character slot
+    for (i, byte) in Array("TestKnight".utf8).enumerated() { standard[1 + i] = byte }
+    standard[12] = 0x2A                      // level 298, little endian
+    standard[13] = 0x01
+    standard[14] = 0x00
+    standard[33] = 0xFF                       // no guild
+    let standardFrame = [UInt8]([0xC1, 42, 0xF3, 0x00, 0, 0, 1, 0]) + standard
+    let decodedStandard = MUCharacterListDecoder.decode(MUWirePacket(
+        type: .c1, data: Data(standardFrame)
+    ))
+    if case .list(let list) = decodedStandard {
+        check(list.variant == .standard, "Standard F3/00 variant not identified")
+        check(list.characters.count == 1, "Standard F3/00 count mismatch")
+        check(list.characters[0].name == "TestKnight", "Character name incorrectly decoded")
+        check(list.characters[0].level == 298, "Character level incorrectly decoded")
+        check(list.characters[0].appearance.count == 18, "Standard appearance must stay opaque")
+    } else { fatalError("Documented standard character list not decoded") }
+
+    var extended = [UInt8](repeating: 0, count: 44)
+    extended[0] = 1
+    for (i, byte) in Array("TestElf".utf8).enumerated() { extended[1 + i] = byte }
+    extended[12] = 0x90
+    extended[13] = 0x01
+    extended[42] = 0x80
+    let extendedFrame = [UInt8]([0xC1, 52, 0xF3, 0x00, 2, 0, 1, 1]) + extended
+    let decodedExtended = MUCharacterListDecoder.decode(MUWirePacket(
+        type: .c1, data: Data(extendedFrame)
+    ))
+    if case .list(let list) = decodedExtended {
+        check(list.variant == .extended, "Extended F3/00 variant not identified")
+        check(list.vaultExtended, "Extended vault flag lost")
+        check(list.characters[0].name == "TestElf", "Extended name decoded incorrectly")
+        check(list.characters[0].level == 400, "Extended character level incorrect")
+        check(list.characters[0].appearance.count == 27, "Extended appearance length incorrect")
+    } else { fatalError("Documented extended character list not decoded") }
+
+    var truncatedCharacterList = standardFrame
+    truncatedCharacterList[6] = 2
+    check(MUCharacterListDecoder.decode(MUWirePacket(
+        type: .c1, data: Data(truncatedCharacterList)
+    )) == .unsupportedVariant, "Character count mismatch must not be accepted")
+
+    check(MUCharacterListDecoder.decode(MUWirePacket(
+        type: .c3, data: Data([0xC3, 0x04, 0xF3, 0x00])
+    )) == .encryptedPayload, "Never inspect encrypted character data")
+
+    print("MU Wire Protocol: framing, server flow and character list fixtures passed.")
 } catch {
     fatalError("MU Wire Protocol check failed: \(error)")
 }

@@ -35,3 +35,11 @@ Goal: a standalone iPhone client that can log in with the **existing ThanhThan P
 - `MUConnectServerFlow.swift` models the documented server-list negotiation as a strict state machine; it generates C1 F4 06 list and C1 F4 03 server-selection envelopes only when the expected preceding response has been received.
 - Server selection is constrained to IDs returned by the server list. It preserves the game server address but NEVER connects to it or sends a password.
 - This is the OpenMU protocol *candidate*, not evidence of actual ThanhThan handshake compatibility. It is not wired into the gameplay scene.
+
+
+## Documented character-list decoding
+
+- Added `MUCharacterList.swift` to decode two documented F3/00 server-to-client character-list record layouts (34 and 44 bytes) with strict size checks.
+- The decoder retains equipment/appearance bytes verbatim rather than guessing class, model or equipment IDs.
+- Only synthetic, local tests are used; this does **not** read anyone's ThanhThan characters.
+- The actual game-server login, cipher negotiation, request sequencing, and server-variant compatibility are still missing.
