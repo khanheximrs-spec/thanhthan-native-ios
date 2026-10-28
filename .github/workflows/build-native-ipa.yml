@@ -31,6 +31,14 @@ jobs:
           assert "func tick(" in s, "Gameplay logic unexpectedly missing"
           print("Source validation passed: GLB v2 and gameplay logic present")
           PY
+      - name: Set up Python for texture converter tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify safe MU texture conversion on synthetic ZIP samples
+        run: |
+          python -m pip install Pillow
+          python Tests/texture_converter_test.py
 
   build:
     needs: source-check
