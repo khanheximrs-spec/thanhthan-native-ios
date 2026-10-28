@@ -15,6 +15,12 @@ Goal: a standalone iPhone client that can log in with the **existing ThanhThan P
 - `Tests/Protocol/main.swift`: deterministic Swift smoke tests, run in GitHub Actions before an iOS IPA build.
 - This is **packet framing only**. No cipher keys, encrypted payload decryption, version/serial negotiation, credentials, handshake, or server-specific commands are implemented.
 
+### Read-only Season 6 server message decoder (2026-10-28)
+- `MUServerPackets.swift` recognizes only documented unencrypted **OpenMU** messages: C1 00 01 hello; C2 F4 06 server list; C1 F4 03 game-server address; C1 F1 00 game server entered; C1 F1 01 login response.
+- The fixture-based protocol checks exercise expected byte order, exact lengths, unknown codes, malformed responses, unsafe host rejection, and encrypted-frame opacity.
+- This is NOT connected to the live ThanhThan server. No credentials are sent, no encryption/handshake has been reverse engineered, and the native game scene is still offline.
+- Important: receiving a `loginResponse` in a test does not mean that login has been implemented; it is only a decoder for the documented reply **if** one is received from a compatible authenticated session.
+
 ## Compatibility gates before claiming online gameplay
 
 1. Identify the original Windows client protocol **version, serialization changes, handshakes and negotiated encryption**, preferably from the authorized ThanhThan operator or approved technical documentation. Observed TCP connections to 160.22.161.124 on 1993, 44404 and 55920 are **observations**, not a verified protocol definition.

@@ -44,7 +44,69 @@ do {
         // Expected.
     }
 
-    print("MU Wire Protocol: all 7 framing checks passed.")
+
+    // Documented OpenMU server packets, tested ONLY with synthetic fixtures.
+    let hello = MUWirePacket(type: .c1, data: Data([0xC1, 0x04, 0x00, 0x01]))
+    check(MUServerPacketDecoder.decode(hello) == .event(.connectHello), "Hello packet decode failed")
+
+    let listData: [UInt8] = [
+        0xC2, 0x00, 0x0F, 0xF4, 0x06, 0x00, 0x02,
+        0x01, 0x00, 0x3C, 0x00,
+        0x02, 0x00, 0x64, 0x01
+    ]
+    let listPacket = MUWirePacket(type: .c2, data: Data(listData))
+    let expectedServers = [
+        MUListedServer(id: 1, loadPercent: 60, optionByte: 0),
+        MUListedServer(id: 2, loadPercent: 100, optionByte: 1)
+    ]
+    check(MUServerPacketDecoder.decode(listPacket) == .event(.serverList(expectedServers)),
+          "Server list decode failed")
+
+    var addressBytes: [UInt8] = [0xC1, 0x16, 0xF4, 0x03]
+    let host = Array("127.0.0.1".utf8)
+    addressBytes.append(contentsOf: host)
+    addressBytes.append(contentsOf: repeatElement(UInt8(0), count: 16 - host.count))
+    let port: UInt16 = 55901
+    addressBytes.append(UInt8(port & 0xFF))
+    addressBytes.append(UInt8((port >> 8) & 0xFF))
+    check(MUServerPacketDecoder.decode(
+        MUWirePacket(type: .c1, data: Data(addressBytes))
+    ) == .event(.serverAddress(host: "127.0.0.1", port: 55901)),
+          "Connect server hand-off address decode failed")
+
+    let entered = MUWirePacket(type: .c1, data: Data([
+        0xC1, 0x0C, 0xF1, 0x00, 0x01, 0x00, 0x42,
+        0x31, 0x2E, 0x30, 0x30, 0x41
+    ]))
+    check(MUServerPacketDecoder.decode(entered) == .event(.gameServerEntered(
+        success: true, playerID: 66, version: Data("1.00A".utf8)
+    )), "Game server enter decode failed")
+
+    let login = MUWirePacket(type: .c1, data: Data([0xC1, 0x05, 0xF1, 0x01, 0x01]))
+    check(MUServerPacketDecoder.decode(login) == .event(.loginResponse(code: 1)),
+          "Login response decode failed")
+
+    let cipher = MUWirePacket(type: .c3, data: Data([0xC3, 0x04, 0xF1, 0x01]))
+    check(MUServerPacketDecoder.decode(cipher) == .encryptedPayload,
+          "Encrypted payload must remain opaque")
+
+    var malformedList = listData
+    malformedList[6] = 3
+    check(MUServerPacketDecoder.decode(
+        MUWirePacket(type: .c2, data: Data(malformedList))
+    ) == .malformedKnownPacket, "Truncated server list accepted")
+
+    var badHost = addressBytes
+    badHost[4] = 0x0A // newline must not enter a host name
+    check(MUServerPacketDecoder.decode(
+        MUWirePacket(type: .c1, data: Data(badHost))
+    ) == .malformedKnownPacket, "Unsafe host name accepted")
+
+    let unknown = MUWirePacket(type: .c1, data: Data([0xC1, 0x04, 0x7F, 0x01]))
+    check(MUServerPacketDecoder.decode(unknown) == .notRecognized,
+          "Unknown packet must not be guessed")
+
+    print("MU Wire Protocol: framing + 9 documented server message checks passed.")
 } catch {
     fatalError("MU Wire Protocol check failed: \(error)")
 }
