@@ -65,17 +65,22 @@ struct MUWireFramer {
         buffer.append(contentsOf: chunk)
 
         var packets: [MUWirePacket] = []
-        while !buffer.isEmpty {
-            guard let type = MUWirePacketType(rawValue: buffer[0]) else {
-                throw MUWireError.unknownPacketType(buffer[0])
+        // TCP may coalesce hundreds of short frames in one read. Track a
+        // cursor and compact once instead of shifting the entire array for
+        // every frame (quadratic work for large frame batches).
+        var consumed = 0
+        while consumed < buffer.count {
+            guard let type = MUWirePacketType(rawValue: buffer[consumed]) else {
+                throw MUWireError.unknownPacketType(buffer[consumed])
             }
-            guard buffer.count >= type.headerLength else { break }
+            let available = buffer.count - consumed
+            guard available >= type.headerLength else { break }
 
             let packetLength: Int
             if type.headerLength == 2 {
-                packetLength = Int(buffer[1])
+                packetLength = Int(buffer[consumed + 1])
             } else {
-                packetLength = (Int(buffer[1]) << 8) | Int(buffer[2])
+                packetLength = (Int(buffer[consumed + 1]) << 8) | Int(buffer[consumed + 2])
             }
             guard packetLength > type.headerLength else {
                 throw MUWireError.invalidLength(packetLength)
@@ -83,13 +88,17 @@ struct MUWireFramer {
             guard packetLength <= maximumBufferedBytes else {
                 throw MUWireError.lengthOverflow(packetLength)
             }
-            guard buffer.count >= packetLength else { break }
+            guard available >= packetLength else { break }
 
             packets.append(MUWirePacket(
                 type: type,
-                data: Data(buffer.prefix(packetLength))
+                data: Data(buffer[consumed..<(consumed + packetLength)])
             ))
-            buffer.removeFirst(packetLength)
+            consumed += packetLength
+        }
+        // Preserve an incomplete trailing header/frame for the next read.
+        if consumed > 0 {
+            buffer.removeFirst(consumed)
         }
         return packets
     }
